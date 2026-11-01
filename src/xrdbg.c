@@ -68,9 +68,28 @@ static void log_open(int half, const char *mode)
     log_path(half, p, sizeof p);
     freopen(p, mode, stderr);
     freopen(p, "a", stdout);
+#if defined(XRDBG_STDERR_BUFFER) && XRDBG_STDERR_BUFFER > 0
+    /* Optional fully buffered log (compile with XRDBG_STDERR_BUFFER=<bytes>, e.g. 65536). Unbuffered, every fprintf
+     * is a WriteFile under the CRT stream lock: a game that logs heavily from a hot thread (a GPU/pushbuffer thread
+     * the game waits on) can lose a large share of its frame time to that lock. log_flusher_thread keeps the file
+     * at most ~200 ms behind; crash_report, xrdbg_note_exit and at_exit flush before they finish. */
+    setvbuf(stderr, NULL, _IOFBF, XRDBG_STDERR_BUFFER);
+#else
     setvbuf(stderr, NULL, _IONBF, 0);
+#endif
     setvbuf(stdout, NULL, _IONBF, 0);
 }
+
+#if defined(XRDBG_STDERR_BUFFER) && XRDBG_STDERR_BUFFER > 0
+static DWORD WINAPI log_flusher_thread(LPVOID unused)
+{
+    (void)unused;
+    for (;;) {
+        Sleep(200);
+        fflush(stderr);
+    }
+}
+#endif
 
 static void log_rotate_if_needed(void)
 {
@@ -784,6 +803,11 @@ void xrdbg_init(const XrDbgConfig *cfg)
         }
     }
 
+    /* Symbols for [STACK] and [EXC]: symbolize() uses SymFromAddr, which only works after SymInitialize. A game that
+     * initialises dbghelp itself later just gets FALSE from its own call (already initialised), which is harmless. */
+    SymSetOptions(SymGetOptions() | SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
+    SymInitialize(GetCurrentProcess(), NULL, TRUE);
+
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
     SetUnhandledExceptionFilter(unhandled_filter);
     AddVectoredExceptionHandler(0, first_chance);
@@ -802,6 +826,9 @@ void xrdbg_init(const XrDbgConfig *cfg)
     }
     CreateThread(NULL, 0, monitor_thread, NULL, 0, NULL);
     CreateThread(NULL, 0, pad_thread, NULL, 0, NULL);
+#if defined(XRDBG_STDERR_BUFFER) && XRDBG_STDERR_BUFFER > 0
+    CreateThread(NULL, 0, log_flusher_thread, NULL, 0, NULL);
+#endif
 }
 
 /* Called by code that ends the process on purpose (window closed, Quit in the menu) so the log says so. */

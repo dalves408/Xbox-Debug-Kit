@@ -64,7 +64,10 @@ be replayed), first-chance exceptions, and why and from where the process exited
    - `frame_count` returns a counter the renderer increments per presented frame.
 4. **Installer (optional but this is what makes it usable for players).** `installer/xrdbg.iss.inc` has the Inno Setup parts: it
    installs `collect_debug.ps1` and a Start menu "Collect debug files" shortcut, only when compiled with `/DDebugBuild=1`.
-5. **Build, keep the symbols.** Dumps can only be read with the exact exe + PDB that produced them: archive both, with the
+5. **A game that prints a lot** (from a GPU or audio thread): `xrdbg_enable(mygame_exe STDERR_BUFFER 65536)` makes the log
+   buffered and flushed by the kit every 200 ms; see `CUSTOMIZING.md`. Integrating with an emulation toolkit that owns the
+   window, renders into guest memory or has its own exit hook: `CUSTOMIZING.md` covers each case.
+6. **Build, keep the symbols.** Dumps can only be read with the exact exe + PDB that produced them: archive both, with the
    installer, for every build that goes to a player.
 
 `demo/xrdbg_demo.c` is a complete minimal user of the kit and doubles as its self-test. `cmake -S . -B build && cmake --build build

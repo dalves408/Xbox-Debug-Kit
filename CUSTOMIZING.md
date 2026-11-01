@@ -38,6 +38,11 @@ git fetch xrdbg debug-kit && git checkout xrdbg/debug-kit -- include src cmake i
 | A settings file you want in every report | `settings_file` (name inside `%LOCALAPPDATA%\<data_folder>`); its first 2 KB go in the header. The collect script also adds every `*.ini` in that folder to the zip. |
 | Names, folder and zip names | `game_name`, `data_folder`, `build_tag`. The zip is `<data_folder>-debug-<crash\|marks>-<date>.zip`. |
 | Window not found / crash box hidden | `window_class` must be the exact class name your window was registered with (`RegisterClass`). If it is wrong nothing breaks; the crash box just cannot first push the game window out of the way. |
+| A game that logs a lot | By default the log is unbuffered: every `fprintf` is a `WriteFile` under the CRT stream lock. If the game prints from a thread it waits on (a GPU/pushbuffer executor, an audio thread), that lock can cost a large share of the frame. Build with a buffer instead: `xrdbg_enable(mygame_exe STDERR_BUFFER 65536)` (or define `XRDBG_STDERR_BUFFER`). The kit then flushes it itself every 200 ms and on crash/exit, so at most the last ~200 ms are lost if the process is killed outright. |
+| The game already sets up `stdout`/`stderr` | A game that calls `setvbuf` on them (or starts its own flusher) must skip that in the debug flavour: the C library does not allow re-buffering a stream after it has been written to, and `xrdbg_init` has written the log header by then. Wrap the game's own setup in `#ifndef XRDBG`. |
+| The window procedure is not yours (an emulation toolkit owns the window) | Poll the key instead: once per presented frame, `GetAsyncKeyState(VK_DELETE)` on its rising edge, and only while `GetForegroundWindow()` is the game window (compare `GetClassNameA` with your `window_class`), so a DEL typed in another program does not mark. |
+| The renderer copies each frame back into guest memory (common in xboxrecomp-style NV2A emulation) | The screenshot can come straight from guest memory: the NV2A CRTC scan-out register `PCRTC_START` (register offset `0x600800`) holds the physical address of the frame being shown; with a 1:1 contiguous window that is guest VA `0x80000000 | address`. Hand that buffer (X8R8G8B8, i.e. B,G,R,X bytes, pitch = width x 4) to `xrdbg_write_bmp`, right after the renderer's copy-back for the frame. No extra GPU readback is needed. |
+| An exit hook API in the toolkit | If your runtime already has a "run before ExitProcess" hook (xboxrecomp: `recomp_exit_hook_set` / `recomp_exit_hook_run`), register `xrdbg_note_exit` through it rather than editing each exit path. Check two things: that the hook API keeps more than one hook (an older xboxrecomp kept one, and its missing-file report registered lazily and replaced earlier hooks), and that the kernel's exit paths (`KeBugCheck`, `KeBugCheckEx`, `HalReturnToFirmware`, `HalInitiateShutdown`) run it too, not only the window close. |
 
 ## Tuning knobs (constants in `src/xrdbg.c`)
 
@@ -54,11 +59,14 @@ git fetch xrdbg debug-kit && git checkout xrdbg/debug-kit -- include src cmake i
 | banner durations in `xrdbg_init` / `xrdbg_mark` | 5 s / 2.8 s | start-up banner and "MARKED" banner |
 | `WaitForSingleObject(zp, 180000)` | 3 min | how long the exit zip is waited for |
 | `now_s() > 20.0` (selftest) | 20 s | `XRDBG_SELFTEST=crash` delay |
+| `XRDBG_STDERR_BUFFER` (compile definition) | unset = unbuffered | log buffer size in bytes; set through `xrdbg_enable(... STDERR_BUFFER n)` |
+| `Sleep(200)` (`log_flusher_thread`) | 200 ms | how often a buffered log is flushed |
 
 ## Things worth checking when you adopt it
 
 - **Is `xrdbg_init` really first?** Anything printed or any `freopen` of `stdout`/`stderr` before it is lost or fights it. A release build that sends output to `NUL` needs that code skipped in the debug flavour (the NHL project does this in its `release_init`).
 - **Does the game strip or ignore the environment?** The kit itself needs no environment variables; they are only developer switches (`XRDBG_SELFTEST`, `XRDBG_COLLECT_QUIET`).
+- **Symbols**: `xrdbg_init` initialises dbghelp (`SymInitialize`) so `[STACK]` and `[EXC]` lines carry function names. If the game calls `SymInitialize` itself later, that call returns FALSE (already initialised) and is harmless; do not call `SymCleanup` while the kit is running.
 - **Exception handlers of your own**: the kit installs `SetUnhandledExceptionFilter` plus a first-chance logger and CRT abort/invalid-parameter/purecall handlers. If your emulator also installs a vectored handler that handles access violations for emulated hardware, that is fine (first-chance AVs are not logged); if it calls `SetUnhandledExceptionFilter` itself, install the kit after it.
 - **Dump size**: before naming a range, check it is committed memory and how big your real dump gets. A 64 MB RAM image plus a 64 MB GPU window gave ~200 MB per dump and ~30 MB zipped.
 - **A new Windows version for the target PCs** (XP, 7): see "Limits" in the README; the zip may need a manual step.
