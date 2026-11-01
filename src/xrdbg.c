@@ -75,16 +75,37 @@ static void log_open(int half, const char *mode)
     }
     freopen(p, "a", stderr);
     freopen(p, "a", stdout);
+    /* "a" alone still loses bytes when two threads print at once: the CRT emulates append as seek-to-end then write,
+     * per handle, so one thread's write can land on top of the other's. A handle opened with FILE_APPEND_DATA and
+     * without FILE_WRITE_DATA makes Windows put every write at the end of the file atomically. Both streams are
+     * pointed at one such handle; the "a" opens above stay as the fallback if it cannot be opened. */
+    {
+        HANDLE h = CreateFileA(p, FILE_APPEND_DATA | FILE_READ_ATTRIBUTES,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS,
+                               FILE_ATTRIBUTE_NORMAL, NULL);
+        int fd = h != INVALID_HANDLE_VALUE ? _open_osfhandle((intptr_t)h, _O_TEXT) : -1;
+        if (fd >= 0) {
+            _dup2(fd, _fileno(stderr));
+            _dup2(fd, _fileno(stdout));
+            _close(fd);
+        } else if (h != INVALID_HANDLE_VALUE) {
+            CloseHandle(h);
+        }
+    }
 #if defined(XRDBG_STDERR_BUFFER) && XRDBG_STDERR_BUFFER > 0
     /* Optional fully buffered log (compile with XRDBG_STDERR_BUFFER=<bytes>, e.g. 65536). Unbuffered, every fprintf
      * is a WriteFile under the CRT stream lock: a game that logs heavily from a hot thread (a GPU/pushbuffer thread
      * the game waits on) can lose a large share of its frame time to that lock. log_flusher_thread keeps the file
-     * at most ~200 ms behind; crash_report, xrdbg_note_exit and at_exit flush before they finish. */
+     * at most ~200 ms behind; crash_report, xrdbg_note_exit and at_exit flush before they finish. stdout is
+     * buffered the same way: each stream then reaches the file in whole buffers, flushed between calls, so lines
+     * printed by different threads stay whole. Unbuffered, the CRT writes a single fprintf to a file in several
+     * pieces, and pieces from threads printing at the same time interleave mid-line (no bytes are lost). */
     setvbuf(stderr, NULL, _IOFBF, XRDBG_STDERR_BUFFER);
+    setvbuf(stdout, NULL, _IOFBF, XRDBG_STDERR_BUFFER);
 #else
     setvbuf(stderr, NULL, _IONBF, 0);
-#endif
     setvbuf(stdout, NULL, _IONBF, 0);
+#endif
 }
 
 #if defined(XRDBG_STDERR_BUFFER) && XRDBG_STDERR_BUFFER > 0
@@ -94,6 +115,7 @@ static DWORD WINAPI log_flusher_thread(LPVOID unused)
     for (;;) {
         Sleep(200);
         fflush(stderr);
+        fflush(stdout);
     }
 }
 #endif
