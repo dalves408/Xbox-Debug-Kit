@@ -66,7 +66,14 @@ static void log_open(int half, const char *mode)
 {
     char p[MAX_PATH];
     log_path(half, p, sizeof p);
-    freopen(p, mode, stderr);
+    /* Both streams in append mode, so every write goes to the end of the file. With stderr opened "w" it wrote at
+     * its own position while stdout appended, and each overwrote the other's bytes (lost lines, stray characters in
+     * the header) as soon as the game printed to stdout. A "w" request only truncates first. */
+    if (mode[0] == 'w') {
+        FILE *t = fopen(p, "w");
+        if (t) fclose(t);
+    }
+    freopen(p, "a", stderr);
     freopen(p, "a", stdout);
 #if defined(XRDBG_STDERR_BUFFER) && XRDBG_STDERR_BUFFER > 0
     /* Optional fully buffered log (compile with XRDBG_STDERR_BUFFER=<bytes>, e.g. 65536). Unbuffered, every fprintf
