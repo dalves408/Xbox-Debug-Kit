@@ -1,1 +1,4 @@
 build/
+
+# Local experimental save-state slots
+*.xrstate

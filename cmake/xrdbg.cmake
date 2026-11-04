@@ -15,8 +15,11 @@
 get_filename_component(_XRDBG_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 
 function(xrdbg_enable target)
-    cmake_parse_arguments(_XRDBG "" "STDERR_BUFFER" "" ${ARGN})
+    cmake_parse_arguments(_XRDBG "SAVE_STATES" "STDERR_BUFFER" "" ${ARGN})
     target_sources(${target} PRIVATE "${_XRDBG_ROOT}/src/xrdbg.c")
+    if(_XRDBG_SAVE_STATES)
+        target_sources(${target} PRIVATE "${_XRDBG_ROOT}/src/xrdbg_state.c")
+    endif()
     target_include_directories(${target} PRIVATE "${_XRDBG_ROOT}/include")
     target_compile_definitions(${target} PRIVATE XRDBG=1)
     if(_XRDBG_STDERR_BUFFER)
@@ -27,4 +30,14 @@ function(xrdbg_enable target)
         target_compile_options(${target} PRIVATE /Zi)
         target_link_options(${target} PRIVATE /DEBUG /OPT:REF /OPT:ICF)
     endif()
+endfunction()
+
+# Experimental Windows x64 native continuation component. Call
+# enable_language(ASM_MASM) in the consuming project's top-level CMake first.
+function(xrdbg_native_enable target)
+    if(NOT MSVC OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8 OR NOT CMAKE_ASM_MASM_COMPILER)
+        message(FATAL_ERROR "Native continuations need MSVC x64 and enable_language(ASM_MASM)")
+    endif()
+    target_sources(${target} PRIVATE "${_XRDBG_ROOT}/src/xrdbg_native.c" "${_XRDBG_ROOT}/src/xrdbg_stack_x64.asm")
+    target_include_directories(${target} PRIVATE "${_XRDBG_ROOT}/include")
 endfunction()

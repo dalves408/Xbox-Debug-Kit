@@ -79,3 +79,8 @@ The NHL Hitz Pro project (branch `main`, `native/`) is the example of a full int
 made configurable), the five hook lines in `src/backend_d3d11.c` (frame counter, DEL key, screenshot after the frame is resolved,
 exit notes), `overrides/kernel_hal.c` (exit notes on shutdown/bugcheck), `src/main.c` (crash context printer and init call),
 `installer/nhl_hitz_pro.iss` (the debug-only parts) and `DEBUG-BUILD.md`.
+
+## Save states
+
+The optional host-assisted state API and adapter contract are documented in [SAVE_STATES.md](SAVE_STATES.md).
+Do not treat crash dumps or an Xbox RAM copy as a complete resumable state.

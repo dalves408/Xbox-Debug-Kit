@@ -180,3 +180,23 @@ the startup settings file alone cannot describe it. Avoid per-frame logging.
 The collector accepts `-OutputDirectory <folder>` as well as `-DataFolder` and
 `-GameName`. `XRDBG_COLLECT_QUIET=1` suppresses dialogs for automated checks.
 Build and run the banner regression with `ctest --test-dir build -C Release --output-on-failure`.
+
+## Experimental save-state framework
+
+`xrdbg_enable(target SAVE_STATES)` adds the host-assisted state engine in
+`xrdbg_state.h`. It supplies compatibility/integrity checks, safe-point callbacks,
+atomic slot replacement and restore rollback. The software demo supports **F6**
+save / **F9** load within the same process. Tests cover corruption and injected failures.
+
+Actual Xbox games require adapters for their threads, execution continuations,
+memory, kernel objects, graphics, audio, files, timers and input. **MvC2 currently
+has an opt-in adapter foundation that rejects save/load; gameplay save states
+are not implemented.** See [SAVE_STATES.md](SAVE_STATES.md) for the contract,
+integration status and remaining runtime work. This feature is experimental.
+
+The experimental Windows x64 native continuation component now preserves C call
+frames and adapter-selected TLS at cooperative boundaries. MvC2 has verified
+staged capture/echo-restore of seven guest and five core device workers. This
+is execution-state plumbing; **MvC2 gameplay rewind/save/load is still disabled**
+until memory and logical resource state are serialized too. See
+[SAVE_STATES.md](SAVE_STATES.md#native-continuation-backend-windows-x64-experiment).
