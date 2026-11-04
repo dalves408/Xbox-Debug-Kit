@@ -1,23 +1,64 @@
-# xrdbg: debug kit for statically recompiled Xbox games
+# Xbox Debug Kit (xrdbg)
 
 A small, self-contained piece of Windows C code that turns a build of a recompiled game into one that **watches itself** and
 packages what a developer needs when something goes wrong on someone else's PC. Nothing has to be installed there: no
 debugger, no build tools (it uses `dbghelp.dll` and, for the zip, `tar.exe`, both part of Windows 10/11).
 
-It came out of the NHL Hitz Pro recompilation (`dalves408/nhlhitzpro-recomp`), where it found and fixed a crash that only
-happened after the third match. The Hitz Pro integration, which is the working reference, is `native/src/debug_report.c`
-plus a few hook lines on the `main` branch of that repository. This branch is the same code made configurable.
+This is the standalone home of the reusable `xrdbg` toolkit, originally developed on the
+`debug-kit` branch of [NHL Hitz Pro](https://github.com/dalves408/nhlhitzpro-recomp)
+and extended during work on [NHL Hitz 2003](https://github.com/dalves408/nhlhitz2003recomp).
+Use this repository's `main` branch for future integrations and updates.
+
+The kit runs inside a **Windows build of a statically recompiled original Xbox game**.
+It is a developer integration library, rather than a debugger for an Xbox console.
+Game-specific register, renderer and memory hooks stay in the host game.
+
+## Build and try the demo
+
+Requirements: Windows 10/11, CMake 3.16 or newer, and Visual Studio 2022 with the
+Desktop development with C++ workload and a Windows SDK. Python 3 is optional
+and enables the collector regression test. Players need no development tools.
+
+```powershell
+git clone https://github.com/dalves408/Xbox-Debug-Kit.git
+cd Xbox-Debug-Kit
+cmake -S . -B build -A x64
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+.\build\Release\xrdbg_demo.exe
+```
+
+In the demo, **Delete** marks a problem, **F12 deliberately crashes**, and **Esc**
+quits. Startup and mark popups stay inside its window and show the configured
+build version. The regression tests exercise banner layout, worker-thread
+requests and cleanup, plus report collection with isolated fixture data.
+
+## Repository contents
+
+| Path | Purpose |
+|---|---|
+| `include/xrdbg.h` | Public configuration, hooks and release-build macros |
+| `src/` | Crash/hang capture, logging, screenshots and optional in-window banners |
+| `cmake/xrdbg.cmake` | Adds the kit to a game's debug target |
+| `demo/` | Minimal Win32 integration example |
+| `installer/` | Report collector and optional Inno Setup integration |
+| `tests/` | Banner and report-collector regression tests |
+| [CUSTOMIZING.md](CUSTOMIZING.md) | Vendoring, callbacks and game-specific integration |
+
+For a full game integration, see `native/src/debug_report.c` and its hook sites
+on the NHL Hitz Pro repository's `main` branch. The quick start below describes
+the reusable API.
 
 ## What a player gets
 
 | Situation | What happens |
 |---|---|
-| Game runs and closes normally | nothing visible; a log was written |
+| Game starts and closes normally | a startup debug banner appears; a log is written |
 | Game crashes (access violation, `abort()`, failed assert, bad CRT parameter) | the log gets the fault, guest registers and call chain; a minidump with the guest memory is written; a zip of everything is started on the Desktop; a message box (over a fullscreen game too) says where it is |
 | Game freezes (no frame for 15 s) | a dump is written once or twice, the game is left alone |
 | Player presses the **mark key** (DEL) when something looks wrong | `[MARK]` line, 3 screenshots (now, +1.5 s, +4 s), a dump for the first two marks, a green banner; the game keeps running and keeps being monitored |
 | Session with marks ends normally | on exit the debug folder is zipped to the Desktop and a message says where |
-| Session with no mark and no crash | silent |
+| Session with no mark and no crash | no exit dialog or automatic ZIP |
 
 Files are in `%LOCALAPPDATA%\<data_folder>\debug`: `session_<date>.log` (rotated at 96 MB per half, last 6 sessions kept),
 `crash_*.dmp`, `hang_*.dmp`, `mark<n>_*.bmp`, `mark<n>_*.dmp`, `running.lock` (seen at the next start: the last session did not
@@ -97,7 +138,7 @@ the option default to ON, and do not ship its installer to everyone.
 - The controller log uses XInput if one of `xinput1_4/1_3/9_1_0.dll` loads; otherwise there is no controller log.
 - Only one process instance is supported per data folder (`running.lock`).
 
-See `CUSTOMIZING.md` for how to adapt the kit to a specific game, and which values to tune.
+See [CUSTOMIZING.md](CUSTOMIZING.md) for how to adapt the kit to a specific game, and which values to tune.
 
 ## In-window banners and diagnostic context
 

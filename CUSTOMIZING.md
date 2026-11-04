@@ -1,11 +1,11 @@
 # Making xrdbg specific to the game you are working on
 
-The kit is deliberately two layers. Keep them apart and updating from this branch stays easy.
+The kit is deliberately two layers. Keep them apart and updating from this repository stays easy.
 
 1. **Your glue**: one small file in your own project (call it `mygame_debug.c`) that fills in `XrDbgConfig` and holds the few
    callbacks. Everything game-specific goes here: guest registers, memory map, frame counter, extra state.
-2. **The kit**: `src/xrdbg.c` and `include/xrdbg.h`. Treat them as vendored: avoid editing them in your project, so a later
-   `git merge`/`git subtree pull` of this branch applies cleanly. If you must change something, change it here first (the branch
+2. **The kit**: `src/` (including `xrdbg_banner.inc`) and `include/xrdbg.h`. Treat them as vendored: avoid editing them in your project, so a later
+   `git merge`/`git subtree pull` from this repository applies cleanly. If you must change something, change it here first (this repository
    is the shared source) or note the change in a comment starting `PROJECT OVERRIDE:` like the NHL project does for toolkit files.
 
 ## Pulling the kit into a project
@@ -14,13 +14,13 @@ Any of these works; pick the one your project already uses for the toolkit:
 
 ```bash
 # as a subtree (code is copied into your repository, history optional):
-git remote add xrdbg https://github.com/dalves408/nhlhitzpro-recomp.git
-git fetch xrdbg debug-kit
-git subtree add --prefix=tools/xrdbg xrdbg debug-kit --squash
-git subtree pull --prefix=tools/xrdbg xrdbg debug-kit --squash      # later, to update
+git remote add xrdbg https://github.com/dalves408/Xbox-Debug-Kit.git
+git fetch xrdbg main
+git subtree add --prefix=tools/xrdbg xrdbg main --squash
+git subtree pull --prefix=tools/xrdbg xrdbg main --squash      # later, to update
 
 # or just the files:
-git fetch xrdbg debug-kit && git checkout xrdbg/debug-kit -- include src cmake installer
+git fetch xrdbg main && git checkout xrdbg/main -- include src cmake installer
 ```
 
 ## Where each game-specific thing goes
