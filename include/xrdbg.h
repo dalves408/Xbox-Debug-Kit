@@ -37,6 +37,7 @@ typedef struct XrDbgConfig {
     const ptrdiff_t *guest_offset;
     int n_dump_ranges;
     struct { uint64_t guest_addr; uint64_t size; } dump_ranges[XRDBG_MAX_RANGES];
+    int banner_in_game;          /* opt-in: queue banners until xrdbg_attach_window(), then clip them to that window */
 } XrDbgConfig;
 
 /* 1. First thing in WinMain, before anything prints: stdout and stderr go to the log file from here on. */
@@ -57,6 +58,14 @@ int xrdbg_write_bmp(const char *path_no_ext, const void *bgra, int w, int h, int
 /* 5. Where the files go (%LOCALAPPDATA%\<data_folder>\debug), for anything else the game wants to put there. */
 const char *xrdbg_dir(void);
 
+/* Optional in-game banners: set cfg.banner_in_game = 1 before init. Call attach
+ * after creating the parent, on its window thread. Forward every message from
+ * that window's WndProc; return 0 when xrdbg_window_message returns nonzero.
+ * Continue normal handling for all other messages (including resize/destroy).
+ * One attached window at a time; a new one may attach after the old is destroyed. */
+void xrdbg_attach_window(HWND game);
+int xrdbg_window_message(HWND game, UINT message, WPARAM w, LPARAM l);
+
 /* Developer self-test: XRDBG_SELFTEST=crash in the environment makes the process fault 20 s after xrdbg_init. */
 
 #ifdef __cplusplus
@@ -67,10 +76,14 @@ const char *xrdbg_dir(void);
 #define XRDBG_INIT(cfg)        xrdbg_init(cfg)
 #define XRDBG_NOTE_EXIT(why)   xrdbg_note_exit(why)
 #define XRDBG_MARK()           xrdbg_mark()
+#define XRDBG_ATTACH_WINDOW(h) xrdbg_attach_window(h)
+#define XRDBG_WINDOW_MESSAGE(h,m,w,l) xrdbg_window_message(h,m,w,l)
 #else
 #define XRDBG_INIT(cfg)        ((void)0)
 #define XRDBG_NOTE_EXIT(why)   ((void)0)
 #define XRDBG_MARK()           ((void)0)
+#define XRDBG_ATTACH_WINDOW(h) ((void)0)
+#define XRDBG_WINDOW_MESSAGE(h,m,w,l) (0)
 #endif
 
 #endif

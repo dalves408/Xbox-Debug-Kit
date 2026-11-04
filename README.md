@@ -98,3 +98,44 @@ the option default to ON, and do not ship its installer to everyone.
 - Only one process instance is supported per data folder (`running.lock`).
 
 See `CUSTOMIZING.md` for how to adapt the kit to a specific game, and which values to tune.
+
+## In-window banners and diagnostic context
+
+Set `cfg.banner_in_game = 1` before `XRDBG_INIT` to keep startup and mark banners
+inside the game window. After creating it, call `XRDBG_ATTACH_WINDOW(hwnd)` on
+its window thread. At the start of its WndProc:
+
+```c
+if (XRDBG_WINDOW_MESSAGE(hwnd, message, wParam, lParam)) return 0;
+```
+
+Forward every message, including resize, DPI changes and destruction; continue
+normal game handling when the hook returns zero. The banner scales to the client
+area, follows fullscreen changes, takes no focus and expires automatically.
+Startup is queued until attachment. Cross-thread requests use a bounded pending
+slot and a registered message, with no heap pointers in posted messages.
+The existing desktop banner remains the default for integrations without these hooks.
+Child clipping requires the renderer to honor `WS_CLIPCHILDREN`; exclusive-fullscreen
+or presentation paths that bypass child windows may need an equivalent renderer overlay.
+
+Put the actual game version in `cfg.build_tag`, for example `"v1.0.2 (debug)"`.
+It appears in both the startup popup and session header; source the string from
+the same build configuration used by the installer. The demo shows these hooks.
+
+The display-device inventory in the header and `computer.txt` does not identify
+the adapter rendering the game. Log the adapter obtained from the created render
+device after device creation (D3D11: `IDXGIDevice::GetAdapter`, then
+`IDXGIAdapter::GetDesc`), including name, vendor/device IDs, dedicated memory,
+feature level and creation/fallback result. Save `graphics.txt` in `xrdbg_dir()`;
+the collector includes it, preferring the debug session's copy over a report in
+the parent data folder. No Direct3D dependency is added to the kit.
+
+Log video-setting changes when they are applied, with timestamp/frame number,
+requested and effective resolution scale, fullscreen/aspect ratio, AA/filtering,
+VSync/frame cap and texture-pack state. Use `on_mark` for a current snapshot.
+This makes a slowdown mark interpretable after settings change during a match;
+the startup settings file alone cannot describe it. Avoid per-frame logging.
+
+The collector accepts `-OutputDirectory <folder>` as well as `-DataFolder` and
+`-GameName`. `XRDBG_COLLECT_QUIET=1` suppresses dialogs for automated checks.
+Build and run the banner regression with `ctest --test-dir build -C Release --output-on-failure`.

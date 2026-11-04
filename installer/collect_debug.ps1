@@ -1,7 +1,8 @@
 # Packs the debug build's files into one zip on the Desktop: logs, crash/hang/mark dumps, screenshots, settings.
 # Started from a Start menu shortcut (see xrdbg.iss.inc), which passes the game's data folder name:
 #   powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File collect_debug.ps1 -DataFolder MyGame
-param([string]$DataFolder = 'xrdbg', [string]$GameName = '')
+param([string]$DataFolder = 'xrdbg', [string]$GameName = '',
+      [string]$OutputDirectory = [Environment]::GetFolderPath('Desktop'))
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 if (-not $GameName) { $GameName = $DataFolder }
@@ -10,8 +11,9 @@ function Say($text, $icon) { if ($quiet) { Write-Output $text } else { [System.W
 $base = Join-Path $env:LOCALAPPDATA $DataFolder
 $dbg = Join-Path $base 'debug'
 $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-$stage = Join-Path $env:TEMP "xrdbg_$stamp"
-$zip = Join-Path ([Environment]::GetFolderPath('Desktop')) "$DataFolder-debug-$stamp.zip"
+$tempRoot = [IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'
+$stage = Join-Path $tempRoot ("xrdbg_" + [guid]::NewGuid().ToString('N'))
+$zip = Join-Path $OutputDirectory "$DataFolder-debug-$stamp.zip"
 try {
     if (-not (Test-Path $dbg)) {
         Say "No debug files found yet in:`n$dbg`n`nPlay the game first." 'Information'
@@ -23,10 +25,15 @@ try {
         $src = [IO.File]::Open($f.FullName, 'Open', 'Read', 'ReadWrite,Delete')
         try { $dst = [IO.File]::Create((Join-Path $stage $f.Name)); try { $src.CopyTo($dst) } finally { $dst.Dispose() } } finally { $src.Dispose() }
     }
-    foreach ($f in Get-ChildItem $base -File -Filter '*.ini' -ErrorAction SilentlyContinue) { Copy-Item $f.FullName (Join-Path $stage $f.Name) }
+    # Prefer reports from this debug session over an older release-build report.
+    foreach ($f in Get-ChildItem $base -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -eq '.ini' -or $_.Name -eq 'graphics.txt' }) {
+        if (-not (Test-Path -LiteralPath (Join-Path $stage $f.Name))) {
+            Copy-Item -LiteralPath $f.FullName -Destination (Join-Path $stage $f.Name)
+        }
+    }
     $os = Get-CimInstance Win32_OperatingSystem
     $gpu = Get-CimInstance Win32_VideoController | ForEach-Object { "$($_.Name) driver $($_.DriverVersion)" }
-    @("Windows: $($os.Caption) $($os.Version)", "GPU: " + ($gpu -join '; '), "Collected: $stamp") | Set-Content (Join-Path $stage 'computer.txt')
+    @("Windows: $($os.Caption) $($os.Version)", "GPU inventory (not necessarily the render adapter): " + ($gpu -join '; '), "Collected: $stamp") | Set-Content (Join-Path $stage 'computer.txt')
     if (Test-Path $zip) { Remove-Item $zip }
     # tar.exe (Windows 10 1803+) writes a normal zip and copes with the large dumps better than Compress-Archive
     $tar = Join-Path $env:SystemRoot 'System32\tar.exe'
@@ -37,11 +44,16 @@ try {
         Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
     }
     $mb = [math]::Round((Get-Item $zip).Length / 1MB, 1)
-    Say "Saved $mb MB to your Desktop:`n$zip`n`nSend that file." 'Information'
+    Say "Saved $mb MB:`n$zip`n`nSend that file." 'Information'
     if (-not $quiet) { Start-Process explorer.exe "/select,`"$zip`"" }
 } catch {
     try { "$(Get-Date -Format s) $($_ | Out-String)" | Add-Content (Join-Path $dbg 'collect_error.txt') } catch { }
     Say "Could not collect the files:`n$($_.Exception.Message)`n`nYou can zip this folder by hand:`n$dbg" 'Error'
 } finally {
-    if (Test-Path $stage) { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
+    $resolvedStage = [IO.Path]::GetFullPath($stage)
+    if ($resolvedStage.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -and
+        (Split-Path $resolvedStage -Leaf).StartsWith('xrdbg_') -and
+        (Test-Path -LiteralPath $resolvedStage)) {
+        Remove-Item -LiteralPath $resolvedStage -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }

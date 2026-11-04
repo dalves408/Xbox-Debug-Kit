@@ -16,6 +16,11 @@
 ;   #endif
 ;   ... and in [Setup]:  OutputBaseFilename=MyGame-Setup-{#AppVersion}{#OutSuffix}
 ;
+; Build the debug target with a distinct executable name (for example mygame-db.exe),
+; and use that name in its [Files], [Icons] and [Run] entries. A different setup
+; filename alone does not keep a debug executable from replacing the release.
+; Feed AppVersion into the debug target's build_tag too, so its popup matches setup.
+;
 ; Then these two blocks, set DataFolder to the same text as XrDbgConfig.data_folder and path to this kit's script:
 
 #define DataFolder "MyGameFolderName"      ; same as XrDbgConfig.data_folder
@@ -29,6 +34,6 @@ Source: "..\xrdbg\installer\collect_debug.ps1"; DestDir: "{app}"; Flags: ignorev
 [Icons]
 #ifdef DebugBuild
 ; the game shortcut itself is best renamed in a debug installer so the two can be told apart:
-;   Name: "{autoprograms}\{#GameName} - Debug"; Filename: "{app}\mygame.exe"; WorkingDir: "{app}"
+;   Name: "{autoprograms}\{#GameName} - Debug"; Filename: "{app}\mygame-db.exe"; WorkingDir: "{app}"
 Name: "{autoprograms}\{#GameName} - Collect debug files"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\collect_debug.ps1"" -DataFolder ""{#DataFolder}"" -GameName ""{#GameName}"""; WorkingDir: "{app}"
 #endif

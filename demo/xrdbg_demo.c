@@ -36,6 +36,7 @@ static void draw_frame(void)
 
 static LRESULT CALLBACK wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
 {
+    if (XRDBG_WINDOW_MESSAGE(h, m, w, l)) return 0;
     switch (m) {
     case WM_KEYDOWN:
         if (w == VK_DELETE && !(l & (1L << 30))) { XRDBG_MARK(); return 0; }
@@ -62,7 +63,8 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cmd, int show)
     memset(&cfg, 0, sizeof cfg);
     cfg.game_name = "xrdbg demo";
     cfg.data_folder = "xrdbg-demo";
-    cfg.build_tag = "demo";
+    cfg.build_tag = "v1.0.0 (demo-debug)";
+    cfg.banner_in_game = 1;
     cfg.window_class = "XrdbgDemo";
     cfg.frame_count = frame_count;
     cfg.print_crash_context = crash_context;
@@ -83,6 +85,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cmd, int show)
     RegisterClassA(&wc);
     hw = CreateWindowExA(0, "XrdbgDemo", "xrdbg demo (DEL = mark, F12 = crash, Esc = quit)", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                          100, 100, 656, 519, NULL, NULL, hi, NULL);
+    XRDBG_ATTACH_WINDOW(hw);
     printf("demo started, window %p\n", (void *)hw);
     for (;;) {
         char cap[MAX_PATH];

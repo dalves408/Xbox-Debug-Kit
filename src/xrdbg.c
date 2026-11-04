@@ -777,7 +777,7 @@ static DWORD WINAPI banner_thread(LPVOID arg)
     return 0;
 }
 
-static void show_banner(const char *title, const char *l2, const char *l3, DWORD ms, COLORREF accent)
+static void desktop_show_banner(const char *title, const char *l2, const char *l3, DWORD ms, COLORREF accent)
 {
     struct banner_args *ba = (struct banner_args *)calloc(1, sizeof *ba);
     if (!ba) return;
@@ -786,8 +786,13 @@ static void show_banner(const char *title, const char *l2, const char *l3, DWORD
     snprintf(ba->l3, sizeof ba->l3, "%s", l3);
     ba->ms = ms;
     ba->accent = accent;
-    CloseHandle(CreateThread(NULL, 0, banner_thread, ba, 0, NULL));
+    {
+        HANDLE thread = CreateThread(NULL, 0, banner_thread, ba, 0, NULL);
+        if (thread) CloseHandle(thread); else free(ba);
+    }
 }
+
+#include "xrdbg_banner.inc"
 
 /* ---- entry point ---------------------------------------------------------------------------------------- */
 
