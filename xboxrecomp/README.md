@@ -76,4 +76,6 @@ python xboxrecomp/tools/state_probe.py --exe build_debug/Release/mygame.exe --sc
 It uses separate settings and saves under `<build>/state-run-*` and writes `result.json` (hash checks, reads per phase) and `shots/`.
 `RECOMP_AUDIO_WAV` records what the game submits. No pad input after the save tests replay: both loads should have equal hashes.
 
+`XRDBG_STATE_CMD=<file>`: a file holding `save` or `load` acts like F6/F9, for scripted debugging.
+
 A hang: the heartbeat logs `[STALL]` lines (locks held, by whom, where), and a hang dump opens with the exact exe + PDB.

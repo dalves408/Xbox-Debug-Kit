@@ -245,6 +245,18 @@ void xrx_state_keys(int focused)
     else if (focused && load && !load_was_down) op=XRDBG_STATE_LOAD;
     else if (focused && probe && !probe_was_down) op=3;
     save_was_down=save; load_was_down=load; probe_was_down=probe;
+    /* XRDBG_STATE_CMD=<file>: a file holding "save" or "load" acts like the key, then is deleted. For scripted debugging. */
+    {
+        static const char *cmd=(const char *)-1; static unsigned tick;
+        if(cmd==(const char *)-1)cmd=getenv("XRDBG_STATE_CMD");
+        if(cmd&&++tick%10==0&&!op){
+            FILE *fp=fopen(cmd,"rb");
+            if(fp){
+                char word[8]="";size_t got=fread(word,1,sizeof word-1,fp);fclose(fp);word[got]=0;DeleteFileA(cmd);
+                if(!strncmp(word,"save",4))op=XRDBG_STATE_SAVE;else if(!strncmp(word,"load",4))op=XRDBG_STATE_LOAD;
+            }
+        }
+    }
     AcquireSRWLockShared(&s_dispatch_lock);
     if (op && s_request && !InterlockedCompareExchange(&s_stop,0,0)) {
         if (!InterlockedCompareExchange(&s_operation,op,0)) SetEvent(s_request);
