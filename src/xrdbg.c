@@ -891,6 +891,11 @@ static void cap_lock(void) { while (InterlockedCompareExchange(&s_cap_lock, 1, 0
 static void cap_unlock(void) { InterlockedExchange(&s_cap_lock, 0); }
 
 /* The renderer asks every frame: a screenshot path (without extension) that is due, if any. */
+void xrdbg_banner(const char *title, const char *line, unsigned ms, unsigned long accent)
+{
+    show_banner(title, line ? line : "", "", ms, (COLORREF)accent);
+}
+
 int xrdbg_capture_due(char *path, size_t n)
 {
     int i, got = 0;

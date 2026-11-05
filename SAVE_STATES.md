@@ -1,11 +1,10 @@
 # Experimental save-state framework
 
 Status: the shared engine, software-demo adapter and experimental Windows x64
-native continuation backend work in their tests. MvC2 can stage-pause and capture
-its seven guest and five core device workers. **MvC2 gameplay save/load is still
-unavailable.** Its commands
-refuse to save/load before allocating a payload, pausing workers, opening a slot
-or changing runtime memory. Do not advertise MvC2 save states as supported yet.
+native continuation backend work in their tests. MvC2 uses them for working same-run
+F6/F9 save states on Windows x64; see its `docs/DEBUG-BUILD.md` and
+`docs/SAVE_STATE_PROGRESS.md`. Another game needs its own adapter and its own testing:
+hashes matching is not enough, check that streams and input still work after a load.
 
 ## Shared responsibilities
 
@@ -87,10 +86,9 @@ cmake --build build_debug --config Release --parallel 2
 
 `src/mvc2_state.c` owns the game adapter. F6/F9 requests are edge-triggered while
 the game has focus and queued to a coordinator; held keys do not repeat. Results
-are logged with `[STATE-mvc2]`. Currently every command returns `unsupported`
-with an explanation; **no `quickstate.xrstate` file is produced**. The option is
-off by default and is rejected when the debug kit is disabled. The capability
-mask remains zero until an actual full provider is implemented.
+are logged with `[STATE-mvc2]` and shown with `xrdbg_banner`. Sections beyond guest
+memory: native continuations, kernel objects, allocator metadata, APU and USB device
+state. The rest of this section records the design reasoning from before that work.
 
 Evidence from this runtime:
 
@@ -201,7 +199,7 @@ the parked native frames in memory, then resumes. Developers can set
 `MVC2_STATE_NATIVE_PROBE_MS=12000,45000,90000` for timed probes after startup and
 `MVC2_STATE_NATIVE_PROBE_RESTORE=1` to echo the just-captured native frames back
 before resuming. Echo restoration has no intervening gameplay and does not rewind
-memory, resources, a match or audio playback. F6/F9 remain unsupported.
+memory, resources, a match or audio playback.
 
 The probes have parked seven guest and five core device workers in real game
 runs and resumed frame progress. Remaining work includes complete host/kernel

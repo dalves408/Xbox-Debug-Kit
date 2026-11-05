@@ -66,6 +66,10 @@ const char *xrdbg_dir(void);
 void xrdbg_attach_window(HWND game);
 int xrdbg_window_message(HWND game, UINT message, WPARAM w, LPARAM l);
 
+/* A short on-screen message for the person at the game (a debug tool's result, say). Returns at once; accent is a
+ * COLORREF for the title. Safe from any thread once xrdbg_init has run. */
+void xrdbg_banner(const char *title, const char *line, unsigned ms, unsigned long accent);
+
 /* Developer self-test: XRDBG_SELFTEST=crash in the environment makes the process fault 20 s after xrdbg_init. */
 
 #ifdef __cplusplus
