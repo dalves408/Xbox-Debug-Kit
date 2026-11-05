@@ -1,0 +1,2 @@
+Hooks match xboxrecomp f0f8a46 plus the toolkit patches 0001-0005, 0007, 0008 (checked by applying them in order).
+Stock f0f8a46 fails with "Runtime hook mismatch". Built and run only with 0009-0011 applied as well.

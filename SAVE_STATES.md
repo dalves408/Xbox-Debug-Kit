@@ -1,9 +1,8 @@
 # Experimental save-state framework
 
 Status: the shared engine, software-demo adapter and experimental Windows x64
-native continuation backend work in their tests. MvC2 uses them for working same-run
-F6/F9 save states on Windows x64; see its `docs/DEBUG-BUILD.md` and
-`docs/SAVE_STATE_PROGRESS.md`. Another game needs its own adapter and its own testing:
+native continuation backend work in their tests. `xboxrecomp/` uses them for working same-run
+F6/F9 save states on Windows x64; see `xboxrecomp/README.md`. Games on the xboxrecomp toolkit can use `xboxrecomp/README.md` as is; another game needs its own adapter and its own testing:
 hashes matching is not enough, check that streams and input still work after a load.
 
 ## Shared responsibilities
@@ -75,18 +74,18 @@ and an 8 MiB fake guest buffer; graphics are regenerated from that state. It
 has no guest threads, audio voices or open game files. Its F6/F9 example is not
 evidence that native Xbox worker stacks can be restored.
 
-## MvC2 integration and remaining work
+## xboxrecomp integration
 
-The opt-in MvC2 build uses:
+The opt-in build of a game on the toolkit uses:
 
 ```powershell
-cmake -S . -B build_debug -DMVC2_DEBUGKIT=ON -DMVC2_SAVE_STATES=ON
+cmake -S . -B build_debug -DMYGAME_DEBUGKIT=ON -DMYGAME_SAVE_STATES=ON
 cmake --build build_debug --config Release --parallel 2
 ```
 
-`src/mvc2_state.c` owns the game adapter. F6/F9 requests are edge-triggered while
+`xboxrecomp/src/xrx_state.c` is the adapter, shared by games on that toolkit. F6/F9 requests are edge-triggered while
 the game has focus and queued to a coordinator; held keys do not repeat. Results
-are logged with `[STATE-mvc2]` and shown with `xrdbg_banner`. Sections beyond guest
+are logged with `[STATE]` and shown with `xrdbg_banner`. Sections beyond guest
 memory: native continuations, kernel objects, allocator metadata, APU and USB device
 state. The rest of this section records the design reasoning from before that work.
 
@@ -175,7 +174,7 @@ suspension, pending-resume tokens, malformed snapshots, changed topology and
 pause-timeout recovery. This proves the primitive in that test, not every host
 runtime's locking and lifetime rules.
 
-### MvC2 runtime integration
+### xboxrecomp runtime integration
 
 The experimental configuration generates private copies of `kernel_bridge.c`,
 `kernel_sync.c`, `xbox_memory_layout.c`, `apu_core.c` and `ohci.c` under the build
@@ -196,8 +195,8 @@ a nested guest kernel hook while holding an outer device lock.
 
 **F7 is a diagnostic probe**, not a save-state command. It captures and validates
 the parked native frames in memory, then resumes. Developers can set
-`MVC2_STATE_NATIVE_PROBE_MS=12000,45000,90000` for timed probes after startup and
-`MVC2_STATE_NATIVE_PROBE_RESTORE=1` to echo the just-captured native frames back
+`XRDBG_STATE_NATIVE_PROBE_MS=12000,45000,90000` for timed probes after startup and
+`XRDBG_STATE_NATIVE_PROBE_RESTORE=1` to echo the just-captured native frames back
 before resuming. Echo restoration has no intervening gameplay and does not rewind
 memory, resources, a match or audio playback.
 

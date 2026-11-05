@@ -43,6 +43,7 @@ requests and cleanup, plus report collection with isolated fixture data.
 | `demo/` | Minimal Win32 integration example |
 | `installer/` | Report collector and optional Inno Setup integration |
 | `tests/` | Banner and report-collector regression tests |
+| [xboxrecomp/README.md](xboxrecomp/README.md) | F6/F9 save states for games on the xboxrecomp toolkit |
 | [CUSTOMIZING.md](CUSTOMIZING.md) | Vendoring, callbacks and game-specific integration |
 
 For a full game integration, see `native/src/debug_report.c` and its hook sites
@@ -189,14 +190,8 @@ atomic slot replacement and restore rollback. The software demo supports **F6**
 save / **F9** load within the same process. Tests cover corruption and injected failures.
 
 Actual Xbox games require adapters for their threads, execution continuations,
-memory, kernel objects, graphics, audio, files, timers and input. **MvC2 currently
-has an opt-in adapter foundation that rejects save/load; gameplay save states
-are not implemented.** See [SAVE_STATES.md](SAVE_STATES.md) for the contract,
-integration status and remaining runtime work. This feature is experimental.
-
-The experimental Windows x64 native continuation component now preserves C call
-frames and adapter-selected TLS at cooperative boundaries. MvC2 has verified
-staged capture/echo-restore of seven guest and five core device workers. This
-is execution-state plumbing; **MvC2 gameplay rewind/save/load is still disabled**
-until memory and logical resource state are serialized too. See
-[SAVE_STATES.md](SAVE_STATES.md#native-continuation-backend-windows-x64-experiment).
+memory, kernel objects, graphics, audio, files, timers and input. Games on the
+xboxrecomp toolkit can use the one in [xboxrecomp/README.md](xboxrecomp/README.md)
+(F6/F9 within one run; needs the toolkit patch series named there). Others: see
+[SAVE_STATES.md](SAVE_STATES.md) for the contract and the
+[native continuation backend](SAVE_STATES.md#native-continuation-backend-windows-x64-experiment).
